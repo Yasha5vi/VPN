@@ -6,56 +6,31 @@ import cors from 'cors';
 
 const SERVER_HOST = '127.0.0.1';
 const SERVER_PORT = 2000;
-const KEY = Buffer.from('b91f133b503011efcd08a195f6ce7dc86f3e40e5c6d04e9c6e8fb765d38209a5', 'hex');
+const KEY = Buffer.from('2e6c7f292306cd6518aff5ff99dba46e', 'hex');
 
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-function pad(data) {
-    const blockSize = 16;
-    const padding = blockSize - (data.length % blockSize);
-    return Buffer.concat([data, Buffer.alloc(padding, 0)]);
-}
-
 function encrypt(message, key) {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-    const encrypted = Buffer.concat([iv, cipher.update(pad(Buffer.from(message))), cipher.final()]);
-    return encrypted.toString('base64');
+    const iv = Buffer.alloc(16).fill(0);
+    const cipher = crypto.createCipheriv('aes-128-cbc', Buffer.from(key,'hex'), iv);
+    let encryptedMessage = cipher.update(message,'utf-8','hex');
+    encryptedMessage += cipher.final('hex');
+    console.log("index encrypt : "+encryptedMessage);
+    return encryptedMessage;
 }
 
 
 // this function is currently not working and is the only thing
 // left to be fixed
 function decrypt(ciphertext, key) {
-    // Convert base64-encoded ciphertext to buffer
-    const ciphertextBuffer = Buffer.from(ciphertext, 'base64');
-
-    // Define the size of the IV (AES block size is 16 bytes)
-    const IV_SIZE = 16;
-
-    if (ciphertextBuffer.length <= IV_SIZE) {
-        throw new Error('Ciphertext is too short.');
-    }
-
-    // Extract IV and encrypted text
-    const iv = ciphertextBuffer.slice(0, IV_SIZE);
-    const encryptedText = ciphertextBuffer.slice(IV_SIZE);
-
-    // Create decipher instance with key and IV
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-
-    // Decrypt the encrypted text
-    let decrypted = Buffer.concat([
-        decipher.update(encryptedText),
-        decipher.final()
-    ]);
-
-    // Remove padding (null bytes)
-    decrypted = decrypted.toString('utf8').replace(/\0+$/, '');
-
-    return decrypted;
+    const iv = Buffer.alloc(16).fill(0);
+    const decipher = crypto.createDecipheriv('aes-128-cbc',Buffer.from(key,'hex'),iv);
+    let decryptedMessage = decipher.update(ciphertext,'hex','utf-8');
+    decryptedMessage += decipher.final('utf-8');
+    console.log("index decrypt : "+decryptedMessage);
+    return decryptedMessage;
 }
 
 

@@ -2,33 +2,37 @@ import socket
 import threading
 from Crypto.Cipher import AES
 import base64
-import os
 
 # Configuration
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 2000
-KEY = bytes.fromhex('b91f133b503011efcd08a195f6ce7dc86f3e40e5c6d04e9c6e8fb765d38209a5')  # Ensure this key is exactly 32 bytes
+KEY = bytes.fromhex('2e6c7f292306cd6518aff5ff99dba46e')  # Ensure this key is exactly 16 bytes
 
 # Check key length
-if len(KEY) != 32:
-    raise ValueError("Key must be exactly 32 bytes long.")
+if len(KEY) != 16:
+    raise ValueError("Key must be exactly 16 bytes long.")
 
 def pad(data):
-    return data + b"\0" * (AES.block_size - len(data) % AES.block_size)
+    pad_len = AES.block_size - (len(data) % AES.block_size)
+    return data + bytes([pad_len]) * pad_len
+
+def unpad(data):
+    pad_len = data[-1]
+    return data[:-pad_len]
 
 def encrypt(message, key):
     message = pad(message)
-    iv = os.urandom(AES.block_size)
+    iv = bytes([0] * AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    encrypted = iv + cipher.encrypt(message)
-    return base64.b64encode(encrypted)
+    encrypted = cipher.encrypt(message)
+    return encrypted.hex()
 
 def decrypt(ciphertext, key):
-    ciphertext = base64.b64decode(ciphertext)
-    iv = ciphertext[:AES.block_size]
+    ciphertext = bytes.fromhex(ciphertext)
+    iv = bytes([0] * AES.block_size)
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    plaintext = cipher.decrypt(ciphertext[AES.block_size:])
-    return plaintext.rstrip(b"\0")
+    plaintext = cipher.decrypt(ciphertext)
+    return unpad(plaintext)
 
 def handle_client(client_socket):
     while True:
@@ -37,13 +41,13 @@ def handle_client(client_socket):
             if not encrypted_data:
                 break
             print(f"Encrypted data received: {encrypted_data}")
-            decrypted_data = decrypt(encrypted_data, KEY)
-            print(f"Decrypted data: {decrypted_data}")
+            decrypted_data = decrypt(encrypted_data.decode(), KEY)
+            print(f"Decrypted data: {decrypted_data.decode()}")
 
             # Echo back the encrypted data received from the client
             encrypted_response = encrypt(decrypted_data, KEY)
             print(f"Encrypted response: {encrypted_response}")
-            client_socket.send(encrypted_response)
+            client_socket.send(encrypted_response.encode())
         except Exception as e:
             print(f"Error: {e}")
             break
